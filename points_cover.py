@@ -1,0 +1,152 @@
+import argparse
+import itertools as it
+
+parser = argparse.ArgumentParser()
+parser.add_argument("-f", help="optional parameter", action="store_true", default=False)
+parser.add_argument("-g", help="optional parameter", action="store_true", default=False)
+parser.add_argument("coordinates_file", help="name of input file")
+args = parser.parse_args()
+
+with open(args.coordinates_file) as input_file:
+    mylist = [tuple(map(int, i.split(' '))) for i in input_file]
+
+sorted_by_second = sorted(mylist, key=lambda tup: tup[0])
+mylist.clear()
+for v in sorted_by_second:
+    mylist.append(v)
+
+all_lines = []
+
+
+def find_b(x, y, a):
+    b = y - a * x
+    return b
+
+
+for v in mylist:
+    for z in mylist:
+        if z == v:
+            continue
+        elif z[0] != v[0]:
+            a = (z[1] - v[1]) / (z[0] - v[0])
+            b = find_b(z[0], z[1], a)
+            if tuple((a, b)) not in all_lines:
+                all_lines.append(tuple((a, b)))
+        else:
+            if tuple(("x", v[0])) not in all_lines:
+                all_lines.append(tuple(("x", v[0])))
+
+point_to_line = {}
+if args.g:
+    maxX = 0
+    maxY = 0
+    for v in mylist:
+        if v[0] > maxX:
+            maxX = v[0]
+        if v[1] > maxY:
+            maxY = v[1]
+    all_lines.clear()
+    for i in range(maxX+1):
+        all_lines.append(tuple(("x", i)))
+    for i in range(maxY+1):
+        all_lines.append(tuple((0, i)))     #possible to use new list to avoid problems with same name lists
+    for line in all_lines:
+        for v in mylist:
+            if v[0] == line[1] and line[0] == "x":
+                point_to_line.setdefault(line, []).append(v)
+            elif line[0] == 0 and line[1] == v[1]:
+                point_to_line.setdefault(line, []).append(v)
+else:
+    for line in all_lines:
+        for v in mylist:
+            if line[0] != "x":
+                if v[1] == line[0] * v[0] + line[1]:    #y=ax+b
+                    point_to_line.setdefault(line, []).append(v)
+            elif line[1] == v[0]:
+                point_to_line.setdefault(line, []).append(v)   # x=10 for example
+
+to_sort = {}
+for key in point_to_line.keys():
+    temp = 0
+    for v in point_to_line.get(key):
+        temp += 1
+    to_sort.update({key: temp})
+sorted_dict = sorted(to_sort.items(), key=lambda x: x[1], reverse=True)
+
+sorted_point_to_line = {}
+for v in sorted_dict:
+    sorted_point_to_line.update({v[0]: point_to_line.get(v[0])})  #question about v[1]
+
+s = set()
+pq = []
+if not args.f:
+    while len(mylist) != 0:
+        max_count = 0
+        for v in sorted_point_to_line.keys():
+            count = 0
+            if v in s:
+                continue
+            for z in sorted_point_to_line.get(v):
+                if z not in pq:
+                    count += 1
+            if count > max_count:
+                max_count = count
+                key = v
+        for point in sorted_point_to_line.get(key):
+            pq.append(point)
+            if point in mylist:
+                mylist.remove(point)
+        s.add(key)
+    for v in sorted_point_to_line.keys():
+        if v in s:
+            if v in s:
+                if len(sorted_point_to_line.get(v)) == 1:
+                    value = sorted_point_to_line.get(v)[0]
+                    new_x = value[0] + 1
+                    new_y = value[1]
+                    print(sorted_point_to_line.get(v), end=" ")
+                    print(tuple((new_x, new_y)))
+                else:
+                    print(sorted_point_to_line.get(v))
+else:
+    all_points = set(mylist)
+    condition = False
+    for n in range(0, len(mylist)//2):
+        temp_set = set()
+        s.clear()
+        for combination in it.combinations(sorted_point_to_line.keys(), n):
+            for v in combination:
+                for z in sorted_point_to_line.get(v):
+                    if z not in temp_set:
+                        temp_set.add(z)
+                s.add(v)
+            if all_points.issubset(temp_set):
+                condition = True
+                break
+        temp_set.clear()
+        if condition:
+            for v in s:
+                to_go = 0
+                for z in s:
+                    if z == v:
+                        continue
+                    for y in sorted_point_to_line.get(v):
+                        for x in sorted_point_to_line.get(z):
+                            if y == x and len(sorted_point_to_line.get(z)) != 1:
+                                to_go += 1
+                if to_go == len(sorted_point_to_line.get(v)):
+                    pq.append(v)
+            for item in pq:
+                s.remove(item)
+            for v in sorted_point_to_line.keys():
+                if v in s:
+                    if len(sorted_point_to_line.get(v)) == 1:
+                        value = sorted_point_to_line.get(v)[0]
+                        new_x = value[0] + 1
+                        new_y = value[1]
+                        print(sorted_point_to_line.get(v), end=" ")
+                        print(tuple((new_x, new_y)))
+                    else:
+                        print(sorted_point_to_line.get(v))
+            break
+
